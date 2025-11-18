@@ -1,48 +1,58 @@
 """
-Database Schemas
+Database Schemas for Price Tracker
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Each Pydantic model represents a collection in MongoDB. The collection name
+is the lowercase class name (e.g., User -> "user").
 """
-
-from pydantic import BaseModel, Field
-from typing import Optional
-
-# Example schemas (replace with your own):
+from typing import Optional, List
+from pydantic import BaseModel, Field, EmailStr
+from datetime import datetime
 
 class User(BaseModel):
     """
     Users collection schema
-    Collection name: "user" (lowercase of class name)
+    Collection: "user"
     """
-    name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+    email: EmailStr = Field(..., description="User email (unique)")
+    password_hash: Optional[str] = Field(None, description="Hashed password (bcrypt)")
+    name: Optional[str] = Field(None, description="Display name")
+    telegram_token: Optional[str] = Field(None, description="Telegram Bot Token for this user")
+    telegram_chat_id: Optional[str] = Field(None, description="Telegram Chat ID for notifications")
+    is_pro: bool = Field(False, description="Pro plan status")
 
 class Product(BaseModel):
     """
     Products collection schema
-    Collection name: "product" (lowercase of class name)
+    Collection: "product"
     """
+    retailer: str = Field(..., description="Retailer name (e.g., Webhallen, Inet, Power, PriceRunner)")
+    product_id: Optional[str] = Field(None, description="Retailer-specific product id")
     title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+    url: str = Field(..., description="Product page URL")
+    image: Optional[str] = Field(None, description="Product image URL")
+    current_price: Optional[float] = Field(None, description="Latest known price in SEK")
 
-# Add your own schemas here:
-# --------------------------------------------------
+class TrackItem(BaseModel):
+    """
+    Track items created by users
+    Collection: "trackitem"
+    """
+    user_email: EmailStr = Field(..., description="Owner (user email)")
+    product_id: Optional[str] = Field(None, description="Linked product id (stringified ObjectId)")
+    url: str = Field(..., description="Product URL to track")
+    target_price: float = Field(..., ge=0, description="Target price in SEK")
+    status: str = Field("tracking", description="tracking|deal|pending|error")
 
-# Note: The Flames database viewer will automatically:
+class PricePoint(BaseModel):
+    """
+    Historical price points for a track item
+    Collection: "pricepoint"
+    """
+    trackitem_id: str = Field(..., description="TrackItem id (stringified ObjectId)")
+    price: float = Field(..., ge=0, description="Price in SEK")
+    recorded_at: Optional[datetime] = Field(default=None, description="When the price was recorded (UTC)")
+
+# The Flames database viewer will automatically:
 # 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+# 2. Use them for document validation
+# 3. Handle operations in the viewer
